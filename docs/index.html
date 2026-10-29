@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DocFlow – AI document processing</title>
+<meta name="description" content="Upload a document. Get a summary, a category and answers to your questions.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+[hidden]{display:none!important}
+:root{--bg:#05070f;--panel:#0b1120;--line:#1b2745;--ink:#e8eefc;--dim:#8b9ac0;--ice:#6ff3ff;--plasma:#a78bfa;--amber:#ffc15e;--bad:#ff7a90}
+html{scroll-behavior:smooth}
+body{background:radial-gradient(900px 520px at 80% -8%,#1a2a5e66,transparent),linear-gradient(#ffffff06 1px,transparent 1px) 0 0/100% 48px,linear-gradient(90deg,#ffffff06 1px,transparent 1px) 0 0/48px 100%,var(--bg);color:var(--ink);font:400 16px/1.65 Manrope,system-ui,sans-serif}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--ice);outline-offset:3px}
+.wrap{max-width:1040px;margin:auto;padding:0 24px}
+nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;color:var(--dim)}
+nav b{font:700 1.1rem Unbounded,sans-serif;color:var(--ink)}
+nav a{text-decoration:none}nav a:hover{color:var(--ice)}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center;padding:48px 0 56px}
+h1{font:700 clamp(2rem,4.6vw,3.2rem)/1.12 Unbounded,sans-serif;letter-spacing:-.01em}
+.lead{color:var(--dim);max-width:44ch;margin:22px 0 30px;font-size:1.08rem}
+.btn{display:inline-block;background:var(--ice);color:#04121a;padding:11px 22px;border-radius:10px;font:700 1rem Manrope,sans-serif;text-decoration:none;border:0;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.pipe{position:relative;border:1px solid var(--line);background:#0b1120cc;border-radius:18px;padding:28px 26px}
+.track{position:absolute;left:41px;top:44px;height:264px;width:2px;background:var(--line)}
+.packet{position:absolute;left:-6px;top:0;width:14px;height:14px;border-radius:50%;background:var(--ice);box-shadow:0 0 18px 4px #6ff3ffaa;animation:go 8s linear infinite}
+@keyframes go{0%{top:0;opacity:1}75%{top:calc(100% - 14px);opacity:1}88%,100%{top:calc(100% - 14px);opacity:0}}
+.node{height:88px;position:relative;padding-left:58px}
+.node i{position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;border:2px solid var(--line);background:var(--panel);animation:lit 8s linear infinite;animation-delay:calc(var(--n)*2s)}
+@keyframes lit{0%,12%{border-color:var(--ice);box-shadow:0 0 16px #6ff3ff88}22%,100%{border-color:var(--line);box-shadow:none}}
+.node strong{display:block;line-height:30px}
+.node span{color:var(--dim);font-size:.93rem;line-height:1.4;display:block}
+section{padding:40px 0 72px}
+h2{font:700 clamp(1.4rem,3vw,1.9rem)/1.2 Unbounded,sans-serif;margin-bottom:20px}
+.panel{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:24px}
+.drop{display:block;border:1.5px dashed #2a3a63;border-radius:14px;padding:40px 20px;text-align:center;cursor:pointer;color:var(--dim);transition:border-color .2s,background .2s}
+.drop:hover,.drop.over,.drop:focus-within{border-color:var(--ice);background:#6ff3ff0a;color:var(--ink)}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.drop small{display:block;margin-top:6px;font-size:.88rem}
+#err{color:var(--bad);min-height:1.6em;margin-top:10px;font-size:.95rem}
+#list{display:grid;gap:14px}
+.empty{color:var(--dim);text-align:center;padding:18px}
+.doc{border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:12px;padding:18px;background:#080d1b}
+.doc.processed{border-left-color:var(--ice)}.doc.failed{border-left-color:var(--bad)}
+.doc header{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.doc h3{font:700 1rem Manrope,sans-serif;word-break:break-all}
+.pill{font-size:.82rem;padding:2px 10px;border-radius:99px;border:1px solid currentColor;color:var(--amber)}
+.processed .pill{color:var(--ice)}.failed .pill{color:var(--bad)}
+.body p{color:#c3cde6;max-width:72ch}.body p.dim{color:var(--dim)}
+.tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.tags span{font-size:.84rem;background:#16203d;border-radius:6px;padding:2px 9px;color:var(--dim)}
+.tags .cat{background:#2a1f55;color:#cdbfff}
+.ask{margin-top:16px;padding-top:16px;border-top:1px solid var(--line);animation:rise .5s ease-out}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}}
+.ask form{display:flex;gap:10px}
+.ask input{flex:1;min-width:0;background:#060a16;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 14px;font:inherit}
+.ask input:focus{border-color:var(--ice);outline:none;box-shadow:0 0 0 3px #6ff3ff22}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{background:#16203d;border:1px solid var(--line);color:var(--dim);border-radius:99px;padding:4px 12px;font:inherit;font-size:.86rem;cursor:pointer}
+.chip:hover{color:var(--ice);border-color:var(--ice)}
+.thread{display:grid;gap:8px;margin-top:14px}
+.q{color:var(--dim);border-left:2px solid var(--plasma);padding-left:12px;font-size:.95rem}
+.a{padding-left:14px;white-space:pre-wrap}.a.dim{color:var(--dim)}.a.bad{color:var(--bad)}
+.note{color:var(--amber);font-size:.9rem;margin-top:16px}
+details{margin-top:16px;color:var(--dim);font-size:.92rem}
+summary{cursor:pointer}
+.cfg{display:flex;gap:10px;margin-top:10px}
+.cfg input{flex:1;min-width:0;background:#060a16;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 14px;font:inherit}
+footer{border-top:1px solid var(--line);padding:26px 0 44px;color:var(--dim);font-size:.92rem}
+@media(max-width:860px){.hero{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.packet,.node i,.ask{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav><b>DocFlow</b><a href="https://github.com/YOUR-USERNAME/docflow-ai">GitHub</a></nav>
+
+<header class="hero">
+  <div>
+    <h1>Drop in a document. Get back what it says and what it is.</h1>
+    <p class="lead">Upload a file and DocFlow writes a short summary, picks a category, then answers your questions about it.</p>
+    <a class="btn" href="#try">Upload a document</a>
+  </div>
+  <div class="pipe" aria-hidden="true">
+    <div class="track"><div class="packet"></div></div>
+    <div class="node" style="--n:0"><i></i><strong>Upload</strong><span>The file goes straight to Amazon S3.</span></div>
+    <div class="node" style="--n:1"><i></i><strong>Trigger</strong><span>The upload starts an AWS Lambda function.</span></div>
+    <div class="node" style="--n:2"><i></i><strong>Analyze</strong><span>Gemini reads it and writes the summary.</span></div>
+    <div class="node" style="--n:3"><i></i><strong>Ask</strong><span>Question the document once it is ready.</span></div>
+  </div>
+</header>
+
+<section id="try">
+  <h2>Upload a document</h2>
+  <div class="panel">
+    <label class="drop" id="drop"><input id="file" type="file" accept=".txt,.md,.csv,.json,.log,.pdf,.png,.jpg,.jpeg">
+      Drag a file here or click to choose one<small>PDF, image, TXT, MD, CSV or JSON, up to 10 MB</small></label>
+    <div id="err" role="alert"></div>
+    <div id="list"></div>
+    <p class="note" id="demo" hidden>Demo mode: results are simulated.</p>
+    <details id="adv" hidden><summary>Connect your backend</summary>
+      <div class="cfg"><input id="api" type="url" placeholder="https://abc123.execute-api.ap-south-1.amazonaws.com" aria-label="API URL"><button class="btn" id="save" type="button">Connect</button></div>
+    </details>
+  </div>
+</section>
+<footer>DocFlow · built with AWS S3, Lambda and Gemini</footer>
+</div>
+
+<script src="config.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+const store={get(k){try{return localStorage.getItem(k)||''}catch{return ''}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
+const fixed=!!window.DOCFLOW_API;
+let api=(window.DOCFLOW_API||store.get('docflow_api')).replace(/\/$/,'');
+let docs=[],timer,lastKey='';const cards=new Map();
+const LABEL={processing:'Processing',processed:'Done',failed:'Failed'};
+const OK=/\.(txt|md|csv|json|log|pdf|png|jpe?g)$/i;
+
+function setup(){$('#adv').hidden=fixed;$('#demo').hidden=!!api;$('#api').value=api}
+function err(m){$('#err').textContent=m||''}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function ask(d,q){
+  if(!api){await wait(900);return 'Demo answer: connect the backend to get real answers from Gemini about this file.'}
+  try{
+    const r=await fetch(api+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:d.id,question:q})});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||'Could not get an answer.');return j.answer;
+  }catch(e){throw e instanceof TypeError?new Error('Network error. Please try again.'):e}
+}
+function askBar(d){
+  const w=el('div','ask'),f=el('form'),i=el('input'),b=el('button','btn','Ask'),th=el('div','thread'),chips=el('div','chips');
+  i.type='text';i.maxLength=500;i.placeholder='Ask a question about this document';i.setAttribute('aria-label','Question about '+(d.filename||'document'));
+  b.type='submit';f.append(i,b);
+  async function send(q){
+    b.disabled=true;const a=el('div','a dim','Thinking…');th.append(el('div','q',q),a);
+    try{a.textContent=await ask(d,q);a.className='a'}catch(e){a.textContent=e.message;a.className='a bad'}
+    b.disabled=false;
+  }
+  f.onsubmit=e=>{e.preventDefault();const q=i.value.trim();if(q&&!b.disabled){i.value='';send(q)}};
+  ['What are the key points?','Any dates, names or amounts?'].forEach(q=>{
+    const x=el('button','chip',q);x.type='button';x.onclick=()=>!b.disabled&&send(q);chips.append(x)});
+  w.append(f,chips,th);return w;
+}
+function ensureCard(d){
+  let c=cards.get(d.id);
+  if(!c){c=el('article','doc');c.append(el('header'),el('div','body'),el('div'));cards.set(d.id,c)}
+  if(c.dataset.s!==d.status){
+    c.dataset.s=d.status;c.className='doc '+d.status;
+    const [h,b,qa]=c.children;
+    h.replaceChildren(el('h3','',d.filename||d.id),el('span','pill',LABEL[d.status]||d.status));
+    b.className='body';b.replaceChildren();
+    if(d.status==='processed'){
+      b.append(el('p','',d.summary));const t=el('div','tags');
+      t.append(el('span','cat',d.category));(d.keywords||[]).forEach(k=>t.append(el('span','',k)));b.append(t);
+      if(!qa.children.length)qa.append(askBar(d));
+    }else b.append(el('p',d.status==='failed'?'':'dim',d.status==='failed'?(d.error||'Processing failed. Try a different file.'):'Reading the document…'));
+  }
+  return c;
+}
+function render(){
+  const list=$('#list');
+  if(!docs.length){list.replaceChildren(el('div','empty','Your summary will appear here, with a bar to ask questions about the file.'));lastKey='';return}
+  const nodes=docs.map(ensureCard),key=docs.map(d=>d.id).join();
+  if(key!==lastKey){list.replaceChildren(...nodes);lastKey=key}
+}
+async function load(){
+  if(!api)return;
+  try{
+    const r=await fetch(api+'/documents');if(!r.ok)throw 0;
+    docs=(await r.json()).documents;render();err('');
+    clearTimeout(timer);if(docs.some(d=>d.status==='processing'))timer=setTimeout(load,3000);
+  }catch{err('Could not reach the backend. Check the API URL.')}
+}
+function demo(file){
+  const d={id:'d'+Date.now(),filename:file.name,status:'processing'};docs.unshift(d);render();
+  setTimeout(()=>{
+    const cat=/invoice|bill|receipt/i.test(file.name)?'Invoice':/contract|agreement/i.test(file.name)?'Contract':/resume|cv/i.test(file.name)?'Resume':'Report';
+    Object.assign(d,{status:'processed',category:cat,keywords:['demo','simulated'],
+      summary:'Demo result. Connect your backend to get a real Gemini summary of this file.'});render();
+  },2200);
+}
+async function upload(file){
+  err('');
+  if(!OK.test(file.name))return err('Please use a PDF, image, TXT, MD, CSV or JSON file.');
+  if(file.size>10*1024*1024)return err('That file is over 10 MB.');
+  if(!api)return demo(file);
+  try{
+    const r=await fetch(api+'/upload-url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name})});
+    const j=await r.json();if(!r.ok)return err(j.error||'The upload was rejected.');
+    const p=await fetch(j.uploadUrl,{method:'PUT',headers:{'Content-Type':j.contentType},body:file});
+    if(!p.ok)return err('Upload failed. Please try again.');
+    docs.unshift({id:j.id,filename:file.name,status:'processing'});render();setTimeout(load,2500);
+  }catch{err('Network error during upload. Please try again.')}
+}
+$('#file').addEventListener('change',e=>{[...e.target.files].forEach(upload);e.target.value=''});
+const dz=$('#drop');
+['dragover','dragenter'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.add('over')}));
+['dragleave','drop'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.remove('over')}));
+dz.addEventListener('drop',e=>[...e.dataTransfer.files].forEach(upload));
+$('#save').addEventListener('click',()=>{api=$('#api').value.trim().replace(/\/$/,'');store.set('docflow_api',api);docs=[];cards.clear();lastKey='';setup();render();load()});
+setup();render();load();
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: DocFlow - AI-powered serverless document processing (S3 + Lambda + Gemini)
+
+Parameters:
+  GeminiApiKey: {Type: String, NoEcho: true, Description: Google AI Studio API key}
+  GeminiModel: {Type: String, Default: gemini-2.5-flash}
+  AllowedOrigin: {Type: String, Default: '*', Description: Website origin allowed by CORS}
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    Environment:
+      Variables:
+        BUCKET: !Sub '${AWS::StackName}-docs-${AWS::AccountId}'
+
+Resources:
+  DocBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-docs-${AWS::AccountId}'
+      PublicAccessBlockConfiguration: {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      CorsConfiguration:
+        CorsRules:
+          - {AllowedMethods: [PUT], AllowedOrigins: ['*'], AllowedHeaders: ['*'], MaxAge: 3000}
+      LifecycleConfiguration:
+        Rules:
+          - {Id: expire-raw-uploads, Status: Enabled, Prefix: uploads/, ExpirationInDays: 30}
+
+  ProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: processor.lambda_handler
+      Timeout: 120
+      MemorySize: 512
+      EventInvokeConfig: {MaximumRetryAttempts: 1}
+      Environment:
+        Variables:
+          GEMINI_API_KEY: !Ref GeminiApiKey
+          GEMINI_MODEL: !Ref GeminiModel
+      Policies:
+        - S3CrudPolicy: {BucketName: !Sub '${AWS::StackName}-docs-${AWS::AccountId}'}
+      Events:
+        Upload:
+          Type: S3
+          Properties:
+            Bucket: !Ref DocBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules: [{Name: prefix, Value: uploads/}]
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings: {ThrottlingBurstLimit: 10, ThrottlingRateLimit: 5}
+      CorsConfiguration:
+        AllowOrigins: [!Ref AllowedOrigin]
+        AllowMethods: [GET, POST, OPTIONS]
+        AllowHeaders: [content-type]
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: api.lambda_handler
+      Timeout: 29
+      Environment:
+        Variables:
+          GEMINI_API_KEY: !Ref GeminiApiKey
+          GEMINI_MODEL: !Ref GeminiModel
+      Policies:
+        - S3CrudPolicy: {BucketName: !Sub '${AWS::StackName}-docs-${AWS::AccountId}'}
+      Events:
+        Ask: {Type: HttpApi, Properties: {ApiId: !Ref HttpApi, Path: /ask, Method: POST}}
+        UploadUrl: {Type: HttpApi, Properties: {ApiId: !Ref HttpApi, Path: /upload-url, Method: POST}}
+        ListDocs: {Type: HttpApi, Properties: {ApiId: !Ref HttpApi, Path: /documents, Method: GET}}
+        GetDoc: {Type: HttpApi, Properties: {ApiId: !Ref HttpApi, Path: '/documents/{id}', Method: GET}}
+
+Outputs:
+  ApiUrl:
+    Description: Paste this into the website's "API URL" field
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  BucketName:
+    Value: !Ref DocBucket
